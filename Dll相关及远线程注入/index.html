@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="何为DLL摘自微软: In Windows, a dynamic-link library (DLL) is a kind of executable file that acts as a shared library of functions and resources. Dynamic linking is an operating system capability. It enables">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dll相关及远线程注入">
+<meta property="og:url" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/index.html">
+<meta property="og:site_name" content="cl4ym0re">
+<meta property="og:description" content="何为DLL摘自微软: In Windows, a dynamic-link library (DLL) is a kind of executable file that acts as a shared library of functions and resources. Dynamic linking is an operating system capability. It enables">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/pe.png">
+<meta property="og:image" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cvs.png">
+<meta property="og:image" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cexample1.png">
+<meta property="og:image" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cexample2.png">
+<meta property="og:image" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cexample3.png">
+<meta property="article:published_time" content="2023-03-14T02:46:30.000Z">
+<meta property="article:modified_time" content="2023-03-14T07:06:24.295Z">
+<meta property="article:author" content="cl4ym0re">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/pe.png">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>Dll相关及远线程注入</title>
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="目录"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="目录"><i class="fas fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="顶部" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fas fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">首页</a></li><!--
+     --><!--
+       --><li><a href="/about/">关于</a></li><!--
+     --><!--
+       --><li><a href="/archives/">归档</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="https://github.com/cl4ym0re">项目</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" aria-label="下一篇" href="/blockdlls%E7%9B%B8%E5%85%B3/"><i class="fas fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="返回顶部" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="分享文章" href="#"><i class="fas fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">上一篇</span>
+      <span id="i-next" class="info" style="display:none;">下一篇</span>
+      <span id="i-top" class="info" style="display:none;">返回顶部</span>
+      <span id="i-share" class="info" style="display:none;">分享文章</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&text=Dll相关及远线程注入"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&is_video=false&description=Dll相关及远线程注入"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Dll相关及远线程注入&body=Check out this article: https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/"><i class="fas fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&name=Dll相关及远线程注入&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&t=Dll相关及远线程注入"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    <div id="toc">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%95%E4%B8%BADLL"><span class="toc-number">1.</span> <span class="toc-text">何为DLL</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E4%B8%8E%E9%9D%99%E6%80%81%E9%93%BE%E6%8E%A5%E7%9A%84%E4%B8%8D%E5%90%8C"><span class="toc-number">2.</span> <span class="toc-text">动态链接与静态链接的不同</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E5%92%8CDLL%E7%9A%84%E4%B8%8D%E5%90%8C"><span class="toc-number">3.</span> <span class="toc-text">应用程序和DLL的不同</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFDllMain%E5%85%A5%E5%8F%A3%E7%82%B9"><span class="toc-number">4.</span> <span class="toc-text">什么是DllMain入口点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DLL%E7%9A%84%E6%98%BE%E7%A4%BA%E5%92%8C%E9%9A%90%E5%BC%8F%E9%93%BE%E6%8E%A5"><span class="toc-number">5.</span> <span class="toc-text">DLL的显示和隐式链接</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9A%90%E5%BC%8F%E9%93%BE%E6%8E%A5"><span class="toc-number">5.1.</span> <span class="toc-text">隐式链接</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%98%BE%E5%BC%8F%E9%93%BE%E6%8E%A5"><span class="toc-number">5.2.</span> <span class="toc-text">显式链接</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%9C%E7%A8%8B%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5"><span class="toc-number">6.</span> <span class="toc-text">远程线程注入</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%9F%E7%90%86%EF%BC%9A"><span class="toc-number">6.1.</span> <span class="toc-text">原理：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E9%99%85%E6%95%88%E6%9E%9C"><span class="toc-number">6.2.</span> <span class="toc-text">实际效果</span></a></li></ol></li></ol>
+    </div>
+  </span>
+</div>
+
+    
+    <div class="content index py4">
+        
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle" itemprop="name headline">
+        Dll相关及远线程注入
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span itemprop="name">cl4ym0re</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2023-03-14T02:46:30.000Z" itemprop="datePublished">2023-03-14</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content" itemprop="articleBody">
+    <h2 id="何为DLL"><a href="#何为DLL" class="headerlink" title="何为DLL"></a>何为DLL</h2><p>摘自微软:</p>
+<p>In Windows, a dynamic-link library (DLL) is a kind of executable file that acts as a shared library of functions and resources. Dynamic linking is an operating system capability. It enables an executable to call functions or use resources stored in a separate file. These functions and resources can be compiled and deployed separately from the executables that use them.</p>
+<p>A DLL isn’t a stand-alone executable. DLLs run in the context of the applications that call them. The operating system loads the DLL into an application’s memory space. It’s done either when the application is loaded (<em>implicit linking</em>), or on demand at runtime (<em>explicit linking</em>). DLLs also make it easy to share functions and resources across executables. Multiple applications can access the contents of a single copy of a DLL in memory at the same time.  </p>
+<p>在Windows操作系统中，动态链接库是一种可执行文件，它充当函数和资源的共享库。动态链接是一项操作系统的功能。它使得可执行程序能够调用函数或使用存储在单独文件中的资源。这些函数和资源可以与使用它们的可执行文件分开编译和部署。</p>
+<p>DLL不是独立的可执行文件。DLL在调用它们的应用程序的上下文中运行。操作系统将DLL加载到应用程序的内存空间中。它要么在加载应用程序时完成（隐式链接），要么在运行时按需完成（显式链接）。DLL还可以方便地跨可执行文件共享函数和资源。多个应用程序可以同时访问内存中DLL的单个副本的内容。</p>
+<h2 id="动态链接与静态链接的不同"><a href="#动态链接与静态链接的不同" class="headerlink" title="动态链接与静态链接的不同"></a>动态链接与静态链接的不同</h2><p>Static linking copies all the object code in a static library into the executables that use it when they’re built. Dynamic linking includes only the information needed by Windows at run time to locate and load the DLL that contains a data item or function. When you create a DLL, you also create an import library that contains this information. When you build an executable that calls the DLL, the linker uses the exported symbols in the import library to store this information for the Windows loader. When the loader loads a DLL, the DLL is mapped into the memory space of your application. If present, a special function in the DLL, DllMain, is called to do any initialization the DLL requires.</p>
+<p>静态链接将静态库中的所有对象代码复制到构建时使用它的可执行文件中。动态链接仅包括Windows在运行时查找和加载包含数据项或函数的DLL所需的信息。创建DLL时，还可以创建包含此信息的导入库。当您构建调用DLL的可执行文件时，链接器使用导入库中导出的符号为Windows加载器存储此信息。当加载程序加载DLL时，DLL将映射到应用程序的内存空间中。如果存在，则调用DLL中的特殊函数DllMain来执行DLL所需的任何初始化。</p>
+<h2 id="应用程序和DLL的不同"><a href="#应用程序和DLL的不同" class="headerlink" title="应用程序和DLL的不同"></a>应用程序和DLL的不同</h2><p>Even though DLLs and applications are both executable modules, they differ in several ways. The most obvious difference is that you can’t run a DLL. From the system’s point of view, there are two fundamental differences between applications and DLLs:</p>
+<ul>
+<li>An application can have multiple instances of itself running in the system simultaneously. A DLL can have only one instance.</li>
+<li>An application can be loaded as a process. It can own things such as a stack, threads of execution, global memory, file handles, and a message queue. A DLL can’t own these things.</li>
+<li>Even though DLLs and applications are both executable modules, they differ in several ways. The most obvious difference is that you can’t run a DLL. From the system’s point of view, there are two fundamental differences between applications and DLLs:<br>● An application can have multiple instances of itself running in the system simultaneously. A DLL can have only one instance.<br>● An application can be loaded as a process. It can own things such as a stack, threads of execution, global memory, file handles, and a message queue. A DLL can’t own these things.</li>
+</ul>
+<p>尽管DLL和应用程序都是可执行模块，但它们在几个方面有所不同。最明显的区别是不能运行DLL。从系统的角度来看，应用程序和DLL之间有两个基本区别：</p>
+<p>● 一个应用程序可以在系统中同时运行其自身的多个实例。DLL只能有一个实例。</p>
+<p>● 应用程序可以作为进程加载。它可以拥有堆栈、执行线程、全局内存、文件句柄和消息队列等内容。DLL不能拥有这些东西。</p>
+<h2 id="什么是DllMain入口点"><a href="#什么是DllMain入口点" class="headerlink" title="什么是DllMain入口点"></a>什么是DllMain入口点</h2><p>摘自微软：</p>
+<p>动态链接库的可选入口点 (DLL) 。 当系统启动或终止进程或线程时，它会使用进程的第一个线程为每个加载的 DLL 调用入口点函数。 当 DLL 使用 LoadLibrary 和 FreeLibrary 函数加载或卸载 DLL 时，系统还会调用该函数的入口点函数。</p>
+<p>就像普通的控制台程序项目一样，提供了main()函数声明了程序的入口点, 每个DLL都可以有一个入口点函数DllMain,系统会在不同的时刻调用此函数。以下是DllMain的一般形式：  </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">BOOL WINAPI <span class="title">DllMain</span><span class="params">(HMODULE hModule,<span class="comment">//该DLL实例的句柄，也就是此DLL映射到进程地址空间后，在该进程地址空间中的位置。</span></span></span></span><br><span class="line"><span class="params"><span class="function">                       DWORD  ul_reason_for_call,<span class="comment">//此参数标示了调用DllMain函数的原因。</span></span></span></span><br><span class="line"><span class="params"><span class="function">                       LPVOID lpReserved<span class="comment">//保留</span></span></span></span><br><span class="line"><span class="params"><span class="function">                     )</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (ul_reason_for_call)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">case</span> DLL_PROCESS_ATTACH:<span class="comment">//当系统第一次将一个DLL映射到进程地址空间中时，会调用DllMain，并为fdwReason传入DLL_PROCESS_ATTACH。注意，只有在第一次映射的时候，才会这样。如之后，另一线程再次显式加载此DLL，则操作系统只是增加该DLL的使用计数，而不会再次使用DLL_PROCESS_ATTACH来调用DllMain。对于隐式加载，如DllMain返回FALSE，则程序会启动失败。对于显式加载，则会使LoadLibrary返回NULL。</span></span><br><span class="line">        <span class="keyword">case</span> DLL_THREAD_ATTACH:<span class="comment">//当进程创建一个线程，则系统会检查当前已映射到该进程空间中的所有DLL映像，并用DLL_THREAD_ATTACH来调用每个DLL的DllMain。只有当所有DLL都完成了对DLL_THREAD_ATTACH的处理后，新线程才会执行它的线程函数。另外，主线程不可能用DLL_THREAD_ATTACH来调用DllMain，因为主线程必然是在进程初始化的时候，用DLL_PROCESS_ATTACH调用DllMain的。</span></span><br><span class="line">        <span class="keyword">case</span> DLL_THREAD_DETACH:<span class="comment">//线程若要终止，会调用ExitThread，但是此函数不会立即终止线程，而是会利用DLL_THREAD_DETACH来调用当前进程地址空间中的所有DLL镜像的DllMain.当每个DLL的DllMain都处理完后，系统才会真正的结束线程。        </span></span><br><span class="line">        <span class="keyword">case</span> DLL_PROCESS_DETACH:<span class="comment">//当系统将一个DLL从进程地址空间中撤销映射时，则会向DllMain传入DLL_PROCESS_DETACH。我们应当在此处放置一些清理代码。当使用FreeLibrary时，如该线程的使用计数为0时，操作系统才会使用DLL_PROCESS_DETACH来调用DllMain。如使用计数大于0，则只是单纯的减少该DLL的计数。</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> TRUE;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="DLL的显示和隐式链接"><a href="#DLL的显示和隐式链接" class="headerlink" title="DLL的显示和隐式链接"></a>DLL的显示和隐式链接</h2><p>可执行文件通过以下两种方式之一链接到（或加载）DLL：</p>
+<p>1、隐式链接 ，其中操作系统会与使用 DLL 的可执行文件同时加载它。 客户端可执行文件调用 DLL 的导出函数的方式与函数进行静态链接并包含在可执行文件中时的方式相同。 隐式链接有时称为静态加载 或加载时动态链接 。</p>
+<p>2、显式链接 ，其中操作系统会在运行时按需加载 DLL。 通过显式链接使用 DLL 的可执行文件必须显式加载和卸载 DLL。 它还必须设置函数指针，用于访问它从 DLL 使用的每个函数。 与静态链接的库或隐式链接 DLL 中的函数调用不同，客户端可执行文件必须通过函数指针调用显式链接 DLL 中的导出函数。 显式链接有时称为动态加载 或运行时动态链接 。</p>
+<p>我们通过如下的代码生成sendMessage.dll,它的导出函数为返回值为空的sendMessage()函数,该函数会调用Windows API MessageBox()弹出窗口来表示DLL被加载。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">pragma</span> once</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> MESSAGE_EXPORTS</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> MESSAGE_API __declspec(dllexport)</span></span><br><span class="line"><span class="meta">#<span class="keyword">else</span> </span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> MESSAGE_API __declspec(dllimport)</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="string">&quot;C&quot;</span> _declspec(dllexport) <span class="function"><span class="type">void</span> <span class="title">sendMessage</span><span class="params">()</span></span>;<span class="comment">//导出该函数,使得能够被其他可执行文件调用</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;framework.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;pch.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;message.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function">BOOL APIENTRY <span class="title">DllMain</span><span class="params">(HMODULE hModule,</span></span></span><br><span class="line"><span class="params"><span class="function">                       DWORD  ul_reason_for_call,</span></span></span><br><span class="line"><span class="params"><span class="function">                       LPVOID lpReserved</span></span></span><br><span class="line"><span class="params"><span class="function">                     )</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (ul_reason_for_call)</span><br><span class="line">    &#123;</span><br><span class="line">    <span class="keyword">case</span> DLL_PROCESS_ATTACH:</span><br><span class="line">            <span class="built_in">sendMessage</span>();</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> DLL_THREAD_ATTACH:</span><br><span class="line">    <span class="keyword">case</span> DLL_THREAD_DETACH:</span><br><span class="line">    <span class="keyword">case</span> DLL_PROCESS_DETACH:</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> TRUE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">sendMessage</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">MessageBox</span>(<span class="number">0</span>, <span class="string">&quot;Hello,World!&quot;</span>, <span class="string">&quot;Dll Loaded!&quot;</span>, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/pe.png" alt="img"></p>
+<h3 id="隐式链接"><a href="#隐式链接" class="headerlink" title="隐式链接"></a>隐式链接</h3><p>概念摘自微软</p>
+<p>当应用程序的代码调用导出 DLL 函数时，会进行隐式链接。 当编译或汇编调用可执行文件的源代码时，DLL 函数调用会在对象代码中生成外部函数引用。 若要解析此外部引用，应用程序必须与 DLL 创建者提供的导入库（.lib 文件）链接。</p>
+<p>导入库包含的代码仅用于加载 DLL 和实现对 DLL 中函数的调用。 在导入库中查找外部函数会告知链接器该函数的代码处于 DLL 中。 若要解析对 DLL 的外部引用，链接器只需将信息添加到可执行文件，告知系统在进程启动时查找 DLL 代码的位置。</p>
+<p>当系统启动包含动态链接引用的程序时，它将使用该程序可执行文件中的信息查找所需 DLL。 如果找不到 DLL，则系统将终止进程，并显示报告错误的对话框。 否则，系统会将 DLL 模块映射到进程地址空间中。</p>
+<p>如果任何 DLL 的初始化和终止代码（如 DllMain）有入口点函数，则操作系统将调用该函数。 传递给入口点函数的一个参数指定用于指示 DLL 附加到进程的代码。 如果入口点函数不返回 TRUE，则系统将终止进程并报告错误。</p>
+<p>最后，系统会修改进程的可执行代码以提供 DLL 函数的起始地址。</p>
+<p>与程序代码的其余部分一样，在进程启动时，加载程序会将 DLL 代码映射到进程的地址空间中。 操作系统仅在需要时才将它加载到内存中。 因此，.def 文件在以前 Windows 版本中用于控制加载的 PRELOAD 和 LOADONCALL 代码特性不再有意义。</p>
+<p>所以我们如果需要隐式调用该dll，需要在可执行文件（这里我们自己实现一个控制台项目）中附加sendMessage.lib告诉链接器要去找sendMessage.dll; visual studio里点击“项目”，打开“项目属性”，找到“链接器”，在“输入”这一栏点击“附加依赖项”并输入sendMessage.lib所在的位置，</p>
+<p><img src="/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cvs.png" alt="img"></p>
+<p>或者在代码中添加以下预处理指令</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">pragma</span> comment(lib,<span class="string">&quot;F:\\cpp_project\\sendMessage\\x64\\Release\\sendMessage.lib&quot;</span>)<span class="comment">//预处理指令,找到sendMessage.lib并根据库中信息寻找sendMessage.DLL</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="string">&quot;C&quot;</span> _declspec(dllimport) <span class="function"><span class="type">void</span> <span class="title">sendMessage</span><span class="params">()</span></span>;<span class="comment">//从dll中导入sendMessage函数</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">sendMessage</span>();</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>随后将sendMessage.dll放在可执行文件所在的文件夹（或本地环境变量设置为存放dll的路径），点击运行。</p>
+<p><img src="/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cexample1.png" alt="img"></p>
+<h3 id="显式链接"><a href="#显式链接" class="headerlink" title="显式链接"></a>显式链接</h3><p>概念摘自微软：</p>
+<p>大多数应用程序使用隐式链接，因为这是可使用的最简单链接方法。 但是，有时需要显式链接。 下面是使用显式链接的一些常见原因：</p>
+<p>应用程序直到运行时才知道它所加载的 DLL 的名称。 例如，应用程序可能会在启动时从配置文件获取 DLL 的名称和导出函数。</p>
+<p>如果在使用隐式链接的进程启动时找不到 DLL，则操作系统会终止进程。 使用显式链接的进程在这种情况下不会终止，可以尝试从错误中恢复。 例如，进程可以向用户通知错误，并让用户指定 DLL 的其他路径。</p>
+<p>如果使用隐式链接的进程所链接到的任何 DLL 的 DllMain 函数失败，则进程也会终止。 使用显式链接的进程在这种情况下不会终止。</p>
+<p>隐式链接到许多 DLL 的应用程序可能会速度较慢，因为 Windows 会在应用程序加载时加载所有 DLL。 若要提高启动性能，应用程序可以只对在加载之后立即需要的 DLL 使用隐式链接。 它可以仅在需要时才使用显式链接加载其他 DLL。</p>
+<p>显式链接无需使用导入库链接应用程序。 如果 DLL 中的更改导致导出序号发生更改，则在使用函数名称而不是序号值调用 GetProcAddress 时，应用程序无需重新链接。 使用隐式链接的应用程序仍必须重新链接到更改的导入库。</p>
+<p>下面是需要注意的显式链接方面的两个风险：</p>
+<p>如果 DLL 具有 DllMain 入口点函数，则操作系统会在调用 LoadLibrary 的线程的上下文中调用该函数。 如果 DLL 已附加到进程，则不会调用入口点函数，因为以前调用的 LoadLibrary 没有对 FreeLibrary 函数进行相应调用。 如果 DLL 使用 DllMain 函数初始化进程的每个线程，则显式链接可能会导致问题，因为调用 LoadLibrary（或 AfxLoadLibrary）时已存在的任何线程都不会进行初始化。</p>
+<p>如果 DLL 将静态范围数据声明为 __declspec(thread)，则可能会在进行显式链接时导致保护错误。 在通过调用 LoadLibrary 加载 DLL 之后，每当代码引用此数据，便会导致保护错误。 （静态范围数据包含全局和局部静态项。）这就是为什么在创建 DLL 时，应避免使用线程本地存储。 如果不能这样做，请向 DLL 用户告知动态加载 DLL 的潜在陷阱。</p>
+<p>所以实现能够显式调用sendMessage.dll的应用程序,我们需要</p>
+<p>1.通过LoadLibrary() API 来获取DLL的句柄。</p>
+<p>2.通过GetProcAddress（）API 来获取导出函数的调用地址。</p>
+<p>3.使用完后通过FreeLibrary（）API释放掉该DLL。</p>
+<p>代码如下:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">typedef</span> <span class="title">void</span> <span class="params">(*PSENDMSG)</span><span class="params">()</span></span>; <span class="comment">// 定义所调用的导出函数的调用指针</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	HMODULE hDll = <span class="built_in">LoadLibrary</span>(<span class="string">&quot;sendMessage.dll&quot;</span>); <span class="comment">//加载dll,获取其句柄</span></span><br><span class="line">	PSENDMSG pSendMsg = (PSENDMSG)<span class="built_in">GetProcAddress</span>(hDll,<span class="string">&quot;sendMessage&quot;</span>);<span class="comment">//获取导出函数sendMessage的指针</span></span><br><span class="line">	<span class="built_in">pSendMsg</span>();<span class="comment">//显式调用</span></span><br><span class="line">	<span class="built_in">FreeLibrary</span>(hDll);<span class="comment">//释放句柄</span></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>也可以手动输入需要调用的DLL位置和函数名,这样就不用将DLL与该文件放在同一目录下</p>
+<p>代码如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">typedef</span> <span class="title">void</span> <span class="params">(*PSENDMSG)</span><span class="params">()</span></span>; <span class="comment">// 定义所调用的导出函数的调用指针</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line">	</span><br><span class="line">	<span class="type">char</span> dllPath[<span class="number">256</span>];</span><br><span class="line">	<span class="type">char</span> funcName[<span class="number">128</span>];</span><br><span class="line"></span><br><span class="line">	cout &lt;&lt; <span class="string">&quot;[*]DLL PATH:&quot;</span> &lt;&lt; endl;</span><br><span class="line">	cin &gt;&gt; dllPath;</span><br><span class="line">	cout &lt;&lt; <span class="string">&quot;[*]Function Name:&quot;</span> &lt;&lt; endl;</span><br><span class="line">	cin &gt;&gt; funcName;</span><br><span class="line">	HMODULE hDll = <span class="built_in">LoadLibrary</span>(dllPath); <span class="comment">//加载dll,获取其句柄</span></span><br><span class="line">	PSENDMSG pSendMsg = (PSENDMSG)<span class="built_in">GetProcAddress</span>(hDll,funcName);<span class="comment">//获取导出函数sendMessage的指针</span></span><br><span class="line">	<span class="built_in">pSendMsg</span>();<span class="comment">//显式调用</span></span><br><span class="line">	<span class="built_in">FreeLibrary</span>(hDll);<span class="comment">//释放句柄</span></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cexample2.png" alt="img"></p>
+<h2 id="远程线程注入"><a href="#远程线程注入" class="headerlink" title="远程线程注入"></a>远程线程注入</h2><h3 id="原理："><a href="#原理：" class="headerlink" title="原理："></a>原理：</h3><p>1、通过OpenProcess（）获取目标进程的句柄</p>
+<p>2、通过VirtualAllocEx（）在目标进程空间申请一块虚拟内存用来存放我们需要注入的DLL</p>
+<p>3、通过WriteProcessMemory（）将Dll的路径传入申请好的内存</p>
+<p>4、通过GetModuleHandleA（）获取到kernel32.dll这类系统dll的句柄，拿到LoadLiraryA（）的函数地址</p>
+<p>5、通过CreateRemoteThread（）函数在目标进程中创建线程执行DLL</p>
+<p>示例代码：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// injectDll.cpp : 此文件包含 &quot;main&quot; 函数。程序执行将在此处开始并结束。</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line">    DWORD TargetPid;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> DllPath[<span class="number">128</span>];</span><br><span class="line">    cout &lt;&lt; endl &lt;&lt; <span class="string">&quot;[*]DllPath：&quot;</span> &lt;&lt; endl;</span><br><span class="line">    cin &gt;&gt; DllPath;</span><br><span class="line">    cout &lt;&lt; endl &lt;&lt; <span class="string">&quot;[*]PID：&quot;</span> &lt;&lt; endl;</span><br><span class="line">    cin &gt;&gt; TargetPid;</span><br><span class="line"></span><br><span class="line">    DWORD dwSize = <span class="built_in">sizeof</span>(DllPath);</span><br><span class="line"></span><br><span class="line">    HANDLE hTargetProcess = <span class="built_in">OpenProcess</span>(PROCESS_ALL_ACCESS, <span class="literal">false</span>, TargetPid);</span><br><span class="line">    <span class="keyword">if</span> (!hTargetProcess) &#123;</span><br><span class="line">        std::cout &lt;&lt; <span class="string">&quot;[-]OpenProcess Failed！&quot;</span> &lt;&lt; std::endl;</span><br><span class="line">    &#125;</span><br><span class="line">    LPVOID lpParamAddress = <span class="built_in">VirtualAllocEx</span>(hTargetProcess, <span class="literal">NULL</span>, dwSize, MEM_COMMIT, PAGE_EXECUTE_READWRITE);</span><br><span class="line">    <span class="built_in">WriteProcessMemory</span>(hTargetProcess, lpParamAddress, (PVOID)DllPath, dwSize, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    HMODULE hModule = <span class="built_in">GetModuleHandleA</span>(<span class="string">&quot;kernel32.dll&quot;</span>);</span><br><span class="line">    LPTHREAD_START_ROUTINE lpStartAddress = (LPTHREAD_START_ROUTINE)<span class="built_in">GetProcAddress</span>(hModule, <span class="string">&quot;LoadLibraryA&quot;</span>);</span><br><span class="line">    HANDLE hThread = <span class="built_in">CreateRemoteThread</span>(hTargetProcess, <span class="literal">NULL</span>, dwSize, lpStartAddress, lpParamAddress, <span class="number">0</span>, <span class="literal">NULL</span>);</span><br><span class="line">    <span class="built_in">WaitForSingleObject</span>(hThread, <span class="number">-1</span>);</span><br><span class="line">    <span class="built_in">VirtualFreeEx</span>(hTargetProcess,lpParamAddress,dwSize,MEM_DECOMMIT);</span><br><span class="line">    <span class="built_in">FreeLibrary</span>(hModule);</span><br><span class="line">    <span class="built_in">CloseHandle</span>(hThread);</span><br><span class="line">    <span class="built_in">CloseHandle</span>(hTargetProcess);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="实际效果"><a href="#实际效果" class="headerlink" title="实际效果"></a>实际效果</h3><p><img src="/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5%5Cexample3.png" alt="image-20230314110632039"></p>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+         
+          <li><a href="/">首页</a></li>
+         
+          <li><a href="/about/">关于</a></li>
+         
+          <li><a href="/archives/">归档</a></li>
+         
+          <li><a target="_blank" rel="noopener" href="https://github.com/cl4ym0re">项目</a></li>
+        
+      </ul>
+    </div>
+
+    <div id="toc-footer" style="display: none">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%95%E4%B8%BADLL"><span class="toc-number">1.</span> <span class="toc-text">何为DLL</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E4%B8%8E%E9%9D%99%E6%80%81%E9%93%BE%E6%8E%A5%E7%9A%84%E4%B8%8D%E5%90%8C"><span class="toc-number">2.</span> <span class="toc-text">动态链接与静态链接的不同</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E5%92%8CDLL%E7%9A%84%E4%B8%8D%E5%90%8C"><span class="toc-number">3.</span> <span class="toc-text">应用程序和DLL的不同</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFDllMain%E5%85%A5%E5%8F%A3%E7%82%B9"><span class="toc-number">4.</span> <span class="toc-text">什么是DllMain入口点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DLL%E7%9A%84%E6%98%BE%E7%A4%BA%E5%92%8C%E9%9A%90%E5%BC%8F%E9%93%BE%E6%8E%A5"><span class="toc-number">5.</span> <span class="toc-text">DLL的显示和隐式链接</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9A%90%E5%BC%8F%E9%93%BE%E6%8E%A5"><span class="toc-number">5.1.</span> <span class="toc-text">隐式链接</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%98%BE%E5%BC%8F%E9%93%BE%E6%8E%A5"><span class="toc-number">5.2.</span> <span class="toc-text">显式链接</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%9C%E7%A8%8B%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5"><span class="toc-number">6.</span> <span class="toc-text">远程线程注入</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%9F%E7%90%86%EF%BC%9A"><span class="toc-number">6.1.</span> <span class="toc-text">原理：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E9%99%85%E6%95%88%E6%9E%9C"><span class="toc-number">6.2.</span> <span class="toc-text">实际效果</span></a></li></ol></li></ol>
+    </div>
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&text=Dll相关及远线程注入"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&is_video=false&description=Dll相关及远线程注入"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=Dll相关及远线程注入&body=Check out this article: https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/"><i class="fas fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&title=Dll相关及远线程注入"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&name=Dll相关及远线程注入&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=https://cl4ym0re.github.io/Dll%E7%9B%B8%E5%85%B3%E5%8F%8A%E8%BF%9C%E7%BA%BF%E7%A8%8B%E6%B3%A8%E5%85%A5/&t=Dll相关及远线程注入"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fas fa-bars fa-lg" aria-hidden="true"></i> 菜单</a>
+        <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fas fa-list fa-lg" aria-hidden="true"></i> 目录</a>
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fas fa-share-alt fa-lg" aria-hidden="true"></i> 分享</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fas fa-chevron-up fa-lg" aria-hidden="true"></i> 返回顶部</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2016-2023
+    cl4ym0re
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">首页</a></li><!--
+     --><!--
+       --><li><a href="/about/">关于</a></li><!--
+     --><!--
+       --><li><a href="/archives/">归档</a></li><!--
+     --><!--
+       --><li><a target="_blank" rel="noopener" href="https://github.com/cl4ym0re">项目</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script> 
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script> 
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"复制到粘贴板！\">";
+    btn += '<i class="far fa-clone"></i>';
+    btn += '</span>'; 
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "复制成功！");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Google Analytics -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Umami Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
